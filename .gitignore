@@ -1,0 +1,5 @@
+env/
+venv/
+airflow/*
+!airflow/dags/
+!airflow/dags/**
