@@ -144,36 +144,39 @@ El pipeline extrae los datos, los limpia, los combina para crear un dataset enri
 10. **Verificar Resultados:** Una vez que el DAG se complete exitosamente, verifica la tabla `artists_merged_final` en tu base de datos PostgreSQL `artists`.
 
 ## Estructura del Proyecto
-workshop_2/
-├── airflow/ # Directorio AIRFLOW_HOME
-│ ├── dags/ # Contiene los archivos de definición de DAGs
-│ │ ├── dag.py
-│ │ └── task_to_dag.py
-│ ├── logs/
-│ ├── airflow.cfg # Configuración de Airflow
-│ └── ... # Otros archivos de Airflow
-├── data/ # Archivos de datos de entrada y salida intermedia
-│ ├── spotify_dataset.csv
-│ ├── the_grammy_awards.csv
-│ └── youtube_stats.csv # Archivo de progreso/resultado de YouTube API
-├── env/ # Archivos de configuración de entorno
-│ └── .env # Variables de entorno (DB, API keys)
-├── src/ # Código fuente de la lógica ETL
-│ ├── extract/ # Scripts para la fase de extracción
-│ │ ├── extract_api.py
-│ │ ├── extract_csv.py
-│ │ └── extract_sql.py
-│ ├── transform/ # Scripts para la fase de transformación y merge
-│ │ ├── transform_api.py
-│ │ ├── transform_csv.py
-│ │ ├── transform_sql.py
-│ │ └── merge_data.py
-│ └── load/ # Scripts para la fase de carga
-│ └── load_to_db.py
-├── venv/ # Entorno virtual de Python (ignorado por git)
-├── .gitignore # Archivos a ignorar por Git
-└── README.md # Este archivo
 
+```text
+workshop_2/
+├── airflow/             # Directorio AIRFLOW_HOME
+│   ├── dags/            # Contiene los archivos de definición de DAGs
+│   │   ├── dag.py
+│   │   └── task_to_dag.py
+│   ├── logs/            # Logs generados por Airflow
+│   ├── airflow.cfg      # Configuración de Airflow
+│   └── ...              # Otros archivos de Airflow (DB, etc.)
+├── data/                # Archivos de datos de entrada y salida intermedia
+│   ├── spotify_dataset.csv
+│   ├── the_grammy_awards.csv
+│   └── youtube_stats.csv # Archivo de progreso/resultado de YouTube API
+├── env/                 # Archivos de configuración de entorno
+│   └── .env             # Variables de entorno (DB, API keys) - ¡NO SUBIR A GIT!
+├── src/                 # Código fuente de la lógica ETL
+│   ├── extract/         # Scripts para la fase de extracción
+│   │   ├── extract_api.py
+│   │   ├── extract_csv.py
+│   │   └── extract_sql.py
+│   ├── transform/       # Scripts para la fase de transformación y merge
+│   │   ├── transform_api.py
+│   │   ├── transform_csv.py
+│   │   ├── transform_sql.py
+│   │   └── merge_data.py
+│   └── load/            # Scripts para la fase de carga
+│       └── load_to_db.py
+│       #└── store_to_csv.py # (Placeholder para la tarea store)
+├── venv/                # Entorno virtual de Python (ignorado por git)
+├── .gitignore           # Archivos a ignorar por Git
+└── README.md            # Este archivo
+```
 ## Variables de Entorno (`env/.env`)
 
 Asegúrate de que este archivo exista y contenga las siguientes variables con tus valores:
