@@ -1,39 +1,28 @@
-# ---------INICIO DEL CAMBIO-----------
 import pandas as pd
 import logging
 import sys
 import os
 
-# Configuración del logging (opcional aquí, el DAG principal también puede configurar)
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - TASK_WRAPPER - %(message)s')
 logger = logging.getLogger(__name__)
 
-# --- Gestión de PYTHONPATH ---
 src_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', 'src'))
 if src_path not in sys.path:
     sys.path.append(src_path)
     logger.info(f"task_to_dag.py: Appended to sys.path: {src_path}")
 
-# --- Importar Funciones de Lógica Real ---
 try:
-    # Extract
     from extract.extract_api import extract_youtube_data_api
     from extract.extract_csv import extract_spotify_data_csv
     from extract.extract_sql import extract_grammy_data_sql
-    # Transform
     from transform.transform_api import clean_youtube_data
     from transform.transform_csv import clean_spotify_data
     from transform.transform_sql import clean_grammy_data
-    # Merge
     from transform.transform_merge import merge_all_data
-    # Load <<< --- NUEVA IMPORTACIÓN --- >>>
     from load.load_to_db import load_dataframe_to_postgres
-    # --- Importaciones futuras (placeholders por ahora) ---
-    # from load.store_to_gdrive import store_to_gdrive_logic # O store_to_csv
     logger.info("task_to_dag.py: Successfully imported logic functions (extract, transform, merge, load).")
 except ImportError as e:
     logger.error(f"task_to_dag.py: Error importing logic functions: {e}. DAG tasks might fail.", exc_info=True)
-    # Definir placeholders para que el módulo cargue sin error fatal
     def extract_youtube_data_api(): logger.error("Placeholder: extract_youtube_data_api called"); return pd.DataFrame()
     def extract_spotify_data_csv(): logger.error("Placeholder: extract_spotify_data_csv called"); return pd.DataFrame()
     def extract_grammy_data_sql(): logger.error("Placeholder: extract_grammy_data_sql called"); return pd.DataFrame()
@@ -41,13 +30,9 @@ except ImportError as e:
     def clean_spotify_data(df): logger.error("Placeholder: clean_spotify_data called"); return pd.DataFrame()
     def clean_grammy_data(df): logger.error("Placeholder: clean_grammy_data called"); return pd.DataFrame()
     def merge_all_data(df1, df2, df3): logger.error("Placeholder: merge_all_data called"); return pd.DataFrame()
-    # Placeholder para load
     def load_dataframe_to_postgres(df, table, db, chunk): logger.error("Placeholder: load_dataframe_to_postgres called"); return False
-    # Define placeholders para el resto si es necesario
 
-# === Funciones Wrapper para cada Tarea del DAG ===
 
-# --- EXTRACT Wrappers (Sin cambios) ---
 def task_extract_api() -> pd.DataFrame:
     logger.info("Executing task wrapper: task_extract_api")
     try:
