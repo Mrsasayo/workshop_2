@@ -1,16 +1,16 @@
-# ---------INICIO DEL CAMBIO-----------
+                                       
 import pandas as pd
 import numpy as np
 import logging
 import warnings
-import io # Para loguear info()
+import io                      
 
-# Configuración del logging
+                           
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - TRANSFORM_API - %(message)s')
 logger = logging.getLogger(__name__)
 
-# Suprimir warnings específicos si es necesario
-# warnings.filterwarnings('ignore', category=FutureWarning)
+                                               
+                                                           
 
 def clean_youtube_data(df_raw: pd.DataFrame) -> pd.DataFrame:
     """
@@ -24,7 +24,7 @@ def clean_youtube_data(df_raw: pd.DataFrame) -> pd.DataFrame:
     """
     logger.info(f"Iniciando limpieza de datos YouTube API. Filas iniciales: {len(df_raw) if isinstance(df_raw, pd.DataFrame) else 'N/A'}")
 
-    # --- Validación de Entrada ---
+                                   
     if not isinstance(df_raw, pd.DataFrame):
         logger.error("La entrada no es un DataFrame de Pandas.")
         return pd.DataFrame()
@@ -36,28 +36,28 @@ def clean_youtube_data(df_raw: pd.DataFrame) -> pd.DataFrame:
     initial_rows = len(df_clean)
 
     try:
-        # --- Inicio de la Limpieza (basado en 003_cleandata_api.ipynb) ---
+                                                                           
 
-        # Columnas numéricas y de texto esperadas
+                                                 
         cols_numericas = ['subscriber_count', 'view_count', 'video_count', 'total_top10_video_likes']
         cols_texto = ['artist_query', 'channel_id_found', 'channel_title_verified']
 
-        # 1. Manejo de Nulos y Valores Especiales (-1) en Numéricas
+                                                                   
         logger.info("Rellenando valores NaN y manejando -1 en columnas numéricas...")
         nulos_rellenados = {}
         for col in cols_numericas:
             if col in df_clean.columns:
                 nulos_antes = df_clean[col].isnull().sum()
-                # Reemplazar -1 (suscriptores ocultos) por NaN ANTES de rellenar
+                                                                                
                 if col == 'subscriber_count':
-                    df_clean[col] = pd.to_numeric(df_clean[col], errors='coerce') # Asegurar que sea numérico o NaN
+                    df_clean[col] = pd.to_numeric(df_clean[col], errors='coerce')                                  
                     replaced_neg_one = (df_clean[col] == -1.0).sum()
                     if replaced_neg_one > 0:
                         df_clean[col] = df_clean[col].replace(-1.0, np.nan)
                         logger.info(f"  - Columna '{col}': {replaced_neg_one} valores -1 reemplazados por NaN.")
-                        nulos_antes = df_clean[col].isnull().sum() # Recalcular nulos
+                        nulos_antes = df_clean[col].isnull().sum()                   
 
-                # Rellenar NaN restantes con 0
+                                              
                 if nulos_antes > 0:
                     df_clean[col].fillna(0, inplace=True)
                     nulos_rellenados[col] = nulos_antes
@@ -69,27 +69,27 @@ def clean_youtube_data(df_raw: pd.DataFrame) -> pd.DataFrame:
         if nulos_rellenados:
             logger.info("Relleno de NaN en columnas numéricas completado.")
 
-        # 2. Conversión de Tipos Numéricos (a Entero)
+                                                     
         logger.info("Convirtiendo columnas numéricas a tipo entero (int64)...")
         for col in cols_numericas:
                 if col in df_clean.columns:
                     try:
-                        # Convertir a int64 ya que rellenamos NaN con 0
+                                                                       
                         df_clean[col] = df_clean[col].astype('int64')
                         logger.info(f"  - Columna '{col}' convertida a int64.")
                     except Exception as e:
                         logger.error(f"  - Error al convertir '{col}' a entero: {e}. Se mantendrá como {df_clean[col].dtype}.", exc_info=True)
-                # No es necesario loguear advertencia aquí de nuevo si no se encontró antes
+                                                                                           
 
-        # 3. Limpieza de Texto (Espacios y Nulos)
+                                                 
         logger.info("Limpiando y asegurando tipo texto en columnas de texto...")
         cols_stripped = []
         for col in cols_texto:
             if col in df_clean.columns:
-                # Rellenar NaNs con string vacío '' ANTES de strip
-                # Esto también convierte la columna a tipo 'object' si contenía np.nan
+                                                                  
+                                                                                      
                 df_clean[col].fillna('', inplace=True)
-                # Asegurar que sea string y quitar espacios
+                                                           
                 try:
                     df_clean[col] = df_clean[col].astype(str).str.strip()
                     cols_stripped.append(col)
@@ -101,13 +101,13 @@ def clean_youtube_data(df_raw: pd.DataFrame) -> pd.DataFrame:
         if cols_stripped:
             logger.info(f"Limpieza de espacios/nulos completada en columnas: {cols_stripped}")
 
-        # 4. Conversión a Tipos de Pandas Óptimos (String)
+                                                          
         logger.info("Optimizando tipos de datos de texto a 'string' de Pandas...")
         converted_to_string = []
         for col in cols_texto:
             if col in df_clean.columns:
                  try:
-                     # Convertir a 'string' de pandas
+                                                     
                      df_clean[col] = df_clean[col].astype('string')
                      converted_to_string.append(col)
                  except Exception as e:
@@ -116,12 +116,12 @@ def clean_youtube_data(df_raw: pd.DataFrame) -> pd.DataFrame:
              logger.info(f"Columnas convertidas a 'string' de Pandas: {converted_to_string}")
 
 
-        # --- Fin de la Limpieza ---
+                                    
         final_rows = len(df_clean)
-        # No hubo drop de filas en este script, solo relleno/conversión
+                                                                       
         logger.info(f"Limpieza de datos YouTube API finalizada. Filas procesadas: {final_rows} (de {initial_rows})")
 
-        # Loguear info del DF limpio
+                                    
         logger.info("Información del DataFrame limpio:")
         buffer = io.StringIO()
         df_clean.info(buf=buffer)
@@ -129,7 +129,7 @@ def clean_youtube_data(df_raw: pd.DataFrame) -> pd.DataFrame:
 
     except Exception as e:
         logger.error(f"Error inesperado durante la limpieza de datos YouTube API: {e}", exc_info=True)
-        return pd.DataFrame() # Devolver DataFrame vacío en caso de error
+        return pd.DataFrame()                                            
 
     return df_clean
-# ----------FIN DEL CAMBIO-------------
+                                       

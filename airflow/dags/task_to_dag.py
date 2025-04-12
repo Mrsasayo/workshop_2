@@ -57,7 +57,7 @@ def task_read_db() -> pd.DataFrame:
         logger.info(f"Task wrapper task_read_db finished. DataFrame shape: {df.shape}"); return df
     except Exception as e: logger.error(f"Error during task_read_db execution: {e}", exc_info=True); return pd.DataFrame()
 
-# --- TRANSFORM Wrappers (Sin cambios) ---
+                                          
 def task_transform_api(df_api_raw: pd.DataFrame) -> pd.DataFrame:
     logger.info("Executing task wrapper: task_transform_api")
     if not isinstance(df_api_raw, pd.DataFrame): logger.warning(f"Input to task_transform_api is not a DataFrame (got {type(df_api_raw)}). Returning empty DataFrame."); return pd.DataFrame()
@@ -91,7 +91,7 @@ def task_transform_db(df_db_raw: pd.DataFrame) -> pd.DataFrame:
         return df_transformed
     except Exception as e: logger.error(f"Error during task_transform_db execution: {e}", exc_info=True); return pd.DataFrame()
 
-# --- MERGE Wrapper (Sin Cambios) ---
+                                     
 def task_merge(df_spotify_cleaned: pd.DataFrame, df_grammy_cleaned: pd.DataFrame, df_youtube_cleaned: pd.DataFrame) -> pd.DataFrame:
     logger.info("Executing task wrapper: task_merge")
     if not isinstance(df_spotify_cleaned, pd.DataFrame): logger.warning("Spotify input for merge is not a DataFrame."); df_spotify_cleaned=pd.DataFrame()
@@ -105,29 +105,29 @@ def task_merge(df_spotify_cleaned: pd.DataFrame, df_grammy_cleaned: pd.DataFrame
         return df_merged
     except Exception as e: logger.error(f"Error during task_merge execution: {e}", exc_info=True); return pd.DataFrame()
 
-# --- LOAD Wrapper <<< --- ACTUALIZADO --- >>> ---
-# Define constantes para la tabla y DB destino aquí o pásalas desde el DAG
+                                                  
+                                                                          
 TARGET_DB_NAME = "artists"
-TARGET_TABLE_NAME = "artists_merged_final" # Nombre para la tabla final
-LOAD_CHUNK_SIZE = 40000 # Chunksize para la carga
+TARGET_TABLE_NAME = "artists_merged_final"                             
+LOAD_CHUNK_SIZE = 40000                          
 
 def task_load(df_merged: pd.DataFrame) -> bool:
     """Wrapper para la tarea de carga a DB que llama a la lógica real."""
     logger.info("Executing task wrapper: task_load")
     if not isinstance(df_merged, pd.DataFrame) or df_merged.empty:
         logger.warning(f"Input to task_load is not a valid/non-empty DataFrame (got {type(df_merged)}). Skipping load.")
-        return False # Indicar skip o fallo
+        return False                       
 
     logger.info(f"DataFrame received for loading to '{TARGET_TABLE_NAME}'. Shape: {df_merged.shape}")
     try:
-        # --- ¡Llama a la función de carga real! ---
+                                                    
         success = load_dataframe_to_postgres(
             df_to_load=df_merged,
             target_table_name=TARGET_TABLE_NAME,
-            db_name=TARGET_DB_NAME, # Especificar la DB aquí
-            chunk_size=LOAD_CHUNK_SIZE # Usar el chunksize definido
+            db_name=TARGET_DB_NAME,                         
+            chunk_size=LOAD_CHUNK_SIZE                             
         )
-        # -----------------------------------------
+                                                   
         if success:
             logger.info(f"Task wrapper task_load finished successfully for table '{TARGET_TABLE_NAME}'.")
         else:
@@ -135,13 +135,13 @@ def task_load(df_merged: pd.DataFrame) -> bool:
         return success
     except Exception as e:
         logger.error(f"Error during task_load execution: {e}", exc_info=True)
-        return False # Indicar fallo
+        return False                
 
-# --- STORE Wrapper (Placeholder - Sin cambios) ---
+                                                   
 def task_store(df_loaded_data: pd.DataFrame) -> bool:
-    # Nota: Este wrapper asume que la tarea 'load' devuelve el DataFrame.
-    # Si task_load solo devuelve True/False, necesitarías que esta tarea
-    # recibiera df_merged de la tarea merge vía XCom.
+                                                                         
+                                                                        
+                                                     
     logger.info("Executing task wrapper: task_store")
     if not isinstance(df_loaded_data, pd.DataFrame) or df_loaded_data.empty:
         logger.warning(f"Input to task_store is not a valid/non-empty DataFrame (got {type(df_loaded_data)}). Skipping store.")
@@ -149,13 +149,13 @@ def task_store(df_loaded_data: pd.DataFrame) -> bool:
 
     logger.info(f"DataFrame received for storing. Shape: {df_loaded_data.shape}")
     try:
-        # --- ¡¡¡Aquí llamarías a tu lógica de almacenamiento real!!! ---
+                                                                         
         logger.info(f"Placeholder Store: Simulating storing DataFrame head:\n{df_loaded_data.head().to_string()}")
-        success = True # Placeholder
-        # ---------------------------------------------------------
+        success = True              
+                                                                   
         if success: logger.info("Task wrapper task_store finished successfully.")
         else: logger.warning("Task wrapper task_store reported failure.")
         return success
     except Exception as e: logger.error(f"Error during task_store execution: {e}", exc_info=True); return False
 
-# ----------FIN DEL CAMBIO-------------
+                                       

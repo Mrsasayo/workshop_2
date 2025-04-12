@@ -6,7 +6,7 @@ import os
 import logging
 
 logger_dag = logging.getLogger(__name__)
-logging.basicConfig(level=logging.INFO) # Asegurarse de que el logging esté configurado
+logging.basicConfig(level=logging.INFO)                                                
 
 dags_path = os.path.dirname(__file__)
 if dags_path not in sys.path:
@@ -35,7 +35,7 @@ except ImportError as e:
      def task_transform_csv(df): logger_dag.error("Placeholder task_transform_csv called"); return pd.DataFrame()
      def task_transform_db(df): logger_dag.error("Placeholder task_transform_db called"); return pd.DataFrame()
      def task_merge(*dfs): logger_dag.error("Placeholder task_merge called"); return pd.DataFrame()
-     def task_load(df): logger_dag.error("Placeholder task_load called"); return False # O un DF vacío si la tarea siguiente lo espera
+     def task_load(df): logger_dag.error("Placeholder task_load called"); return False                                                
      def task_store(df): logger_dag.error("Placeholder task_store called"); return False
 
 
