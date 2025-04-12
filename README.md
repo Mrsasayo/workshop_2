@@ -1,167 +1,195 @@
-# Proyecto: Pipeline ETL con Apache Airflow - Spotify y Grammys
+# Workshop 2: Pipeline ETL de Datos de Artistas con Airflow
 
-## Descripción General
+Este proyecto implementa un pipeline ETL (Extract, Transform, Load) utilizando Apache Airflow para procesar y combinar datos de artistas desde tres fuentes diferentes:
 
-Este proyecto implementa un pipeline ETL utilizando Apache Airflow para extraer, transformar y cargar datos relacionados con música desde tres fuentes diferentes:
-1.  Un dataset de canciones de Spotify (archivo CSV).
-2.  Un dataset de premios Grammy (inicialmente CSV, cargado en PostgreSQL).
-3.  La API Web de Spotify para enriquecer los datos.
+1.  **Spotify:** Datos de canciones y características desde un archivo CSV (`spotify_dataset.csv`).
+2.  **The Grammy Awards:** Historial de nominaciones y premios desde una tabla PostgreSQL (`the_grammy_awards`).
+3.  **YouTube Data API v3:** Estadísticas de canales de artistas (suscriptores, vistas, etc.) obtenidas mediante la API de Google.
 
-El objetivo es fusionar estos datos en un conjunto coherente y cargarlo en una base de datos PostgreSQL y como archivo CSV en Google Drive.
+El pipeline extrae los datos, los limpia, los combina para crear un dataset enriquecido, y finalmente carga el resultado en una tabla PostgreSQL (`artists_merged_final`) en la base de datos `artists`.
 
-## Flujo del Pipeline ETL
+## Prerrequisitos
 
-El pipeline está orquestado por un DAG de Airflow (`spotify_grammy_etl_pipeline`) y sigue estos pasos:
+*   **Python:** Versión 3.10 o superior recomendada.
+*   **pip:** El instalador de paquetes de Python.
+*   **venv:** Módulo para crear entornos virtuales (generalmente incluido con Python 3).
+*   **PostgreSQL:** Una instancia de PostgreSQL en ejecución, accesible desde donde se ejecute Airflow. Debes tener creada la base de datos `artists` y las tablas iniciales cargadas (`the_grammy_awards`, `spotify_dataset` - los scripts de carga iniciales no están incluidos en este DAG, se asume que ya existen).
+*   **Credenciales de YouTube Data API v3:** Necesitas credenciales OAuth 2.0 (Client ID, Client Secret) de un proyecto en Google Cloud Console con la API habilitada. Consulta la [guía oficial de Google](https://developers.google.com/youtube/v3/getting-started).
+*   **Git:** Para clonar el repositorio.
 
-1.  **Extracción (Paralela):**
-    *   `extract_spotify_csv`: Lee datos del archivo `spotify_dataset.csv`.
-    *   `extract_grammys_db`: Lee datos de la tabla `grammy_awards_raw` en PostgreSQL.
-    *   `extract_spotify_api`: Consulta la API de Spotify para obtener información adicional (popularidad actual, géneros de artistas, IDs, etc.) basada en los datos del CSV.
-2.  **Transformación (Paralela):**
-    *   `transform_spotify_csv`: Limpia, selecciona columnas y ajusta tipos del dataset de Spotify CSV.
-    *   `transform_grammys_db`: Limpia y estandariza los datos de Grammys (nombres de artistas, etc.).
-    *   `transform_spotify_api`: Procesa los datos JSON/dict de la API a un formato tabular (DataFrame).
-3.  **Fusión:**
-    *   `merge_data`: Combina los tres DataFrames transformados. La lógica principal une Spotify CSV con API (por `track_id`) y luego el resultado con Grammys (por `track_name` y `artist_name` normalizados). Se manejan datos faltantes y se crea una bandera para indicar nominaciones/premios Grammy.
-4.  **Carga (Paralela):**
-    *   `load_to_postgres`: Carga/Reemplaza el DataFrame fusionado en la tabla `spotify_grammy_merged` de PostgreSQL.
-    *   `load_to_gdrive`: Guarda el DataFrame fusionado como un archivo CSV (`spotify_grammy_merged_data.csv`) en una carpeta específica de Google Drive.
+## Instrucciones de Configuración
 
-## Estructura del Proyecto
-
-.
-├── config/ # (Opcional) Archivos de configuración (no usado activamente por el DAG)
-│ └── db_config.ini
-├── dags/ # DAGs de Airflow
-│ └── etl_workshop_dag.py
-├── data/ # Datos CSV originales
-│ ├── spotify_dataset.csv # ¡ASEGÚRATE QUE ESTE ARCHIVO EXISTA AQUÍ!
-│ └── the_grammy_awards.csv
-├── env/ # Archivo de entorno (¡NO SUBIR A GIT!)
-│ └── .env
-├── notebooks/ # Notebooks para Análisis Exploratorio (EDA)
-│ ├── eda_grammy_awards.ipynb
-│ └── eda_spotify_tracks.ipynb
-├── scripts/ # Scripts Python reutilizables
-│ ├── api/
-│ │ ├── init.py
-│ │ └── spotify_client.py # Cliente API Spotify
-│ ├── db/
-│ │ ├── connection.py # Utilidades conexión DB (usando Airflow Hooks)
-│ │ ├── init.py
-│ │ └── load_grammys.py # Script para carga inicial de Grammys a PG (ejecutar 1 vez)
-│ ├── init.py
-│ └── transform/
-│ ├── init.py
-│ └── transformations.py # Funciones de transformación y fusión
-├── requirements.txt # Dependencias Python
-└── README.md # Este archivo
-
-
-## Configuración del Entorno
-
-1.  **Clonar Repositorio:**
+1.  **Clonar el Repositorio:**
     ```bash
-    git clone <tu-repo-url>
-    cd tu_proyecto_airflow
+    git clone https://github.com/Mrsasayo/workshop_2.git
+    cd workshop_2 # Muévete al directorio del proyecto
     ```
-2.  **Crear Entorno Virtual y Activar:**
+    *(Nota: Asegúrate de estar en el directorio `workshop_2` para los siguientes comandos)*
+
+2.  **Crear y Activar Entorno Virtual:**
     ```bash
     python3 -m venv venv
     source venv/bin/activate
     ```
-3.  **Instalar Dependencias:**
+    *(En Windows usa: `venv\Scripts\activate`)*
+
+3.  **Instalar Dependencias Base:**
     ```bash
-    pip install --upgrade pip
-    pip install -r requirements.txt
+    pip install pandas==2.1.4 numpy==1.26.4 python-dotenv SQLAlchemy psycopg2-binary google-api-python-client google-auth-httplib2 google-auth-oauthlib
     ```
-4.  **Configurar PostgreSQL:**
-    *   Asegúrate de tener un servidor PostgreSQL corriendo.
-    *   Crea una base de datos (ej: `spotify_etl_db`).
-    *   Crea un usuario y otórgale permisos sobre la base de datos.
-5.  **Configurar Credenciales (`env/.env`):**
-    *   Copia `env/.env.example` a `env/.env` (o crea `env/.env`).
-    *   Rellena los valores para `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`, `POSTGRES_HOST`, `POSTGRES_PORT`.
-    *   Registra una aplicación en [Spotify for Developers](https://developer.spotify.com/dashboard/) para obtener `SPOTIFY_CLIENT_ID` y `SPOTIFY_CLIENT_SECRET`. Añádelos al `.env`.
-    *   Configura Google Cloud:
-        *   Crea un proyecto en [Google Cloud Console](https://console.cloud.google.com/).
-        *   Habilita la API de Google Drive.
-        *   Crea una Cuenta de Servicio (Service Account).
-        *   Descarga el archivo JSON de la clave de la cuenta de servicio.
-        *   Añade la ruta a este archivo en `GOOGLE_SERVICE_ACCOUNT_FILE` en `.env`.
-        *   Crea una carpeta en Google Drive y obtén su ID (la parte final de la URL de la carpeta). Añádela como `GOOGLE_DRIVE_FOLDER_ID` en `.env`.
-        *   **Importante:** Comparte la carpeta de Google Drive con el email de la cuenta de servicio creada (dándole permisos de Editor).
-    *   **¡Añade `env/.env` a tu archivo `.gitignore`!**
-6.  **Carga Inicial de Datos de Grammys:**
-    *   Asegúrate de que el archivo `data/the_grammy_awards.csv` exista.
-    *   Ejecuta el script de carga una vez (asegúrate que tu venv esté activado y el `.env` configurado):
-        ```bash
-        python scripts/db/load_grammys.py
+    *(Nota: `psycopg2-binary` es más fácil de instalar que `psycopg2` que requiere dependencias del sistema. `SQLAlchemy` es necesario para interactuar con la DB. Se añadieron las librerías de Google)*.
+
+4.  **Configurar Variables de Entorno:**
+    *   Copia o renombra el archivo `env/.env.example` a `env/.env` (si existiera un ejemplo, sino créalo).
+    *   Edita el archivo `env/.env` y rellena **TODAS** las variables requeridas:
+
+        ```dotenv
+        # PostgreSQL Credentials
+        POSTGRES_USER=tu_usuario_postgres
+        POSTGRES_PASSWORD=tu_contraseña_postgres
+        POSTGRES_HOST=localhost # o la IP/hostname de tu servidor DB
+        POSTGRES_PORT=5432 # o el puerto de tu servidor DB
+        POSTGRES_DB=artists # Nombre de la base de datos
+
+        # YouTube API OAuth 2.0 Credentials
+        # Obtenidas desde Google Cloud Console
+        YOUTUBE_CLIENT_ID=TU_CLIENT_ID.apps.googleusercontent.com
+        YOUTUBE_CLIENT_SECRET=TU_CLIENT_SECRET
+        YOUTUBE_PROJECT_ID=tu-project-id # Opcional pero bueno tenerlo
+        # URIs - Generalmente no necesitas cambiarlas
+        YOUTUBE_AUTH_URI=https://accounts.google.com/o/oauth2/auth
+        YOUTUBE_TOKEN_URI=https://oauth2.googleapis.com/token
+        # Asegúrate que esta URI esté registrada en tus credenciales OAuth en Google Console
+        YOUTUBE_REDIRECT_URIS=http://localhost
         ```
-    *   Verifica que la tabla `grammy_awards_raw` se haya creado y poblado en tu base de datos PostgreSQL.
-7.  **Configurar Apache Airflow:**
-    *   Instala y configura Airflow (si no lo tienes ya). Consulta la [documentación oficial de Airflow](https://airflow.apache.org/docs/).
-    *   Asegúrate de que el directorio `dags` de tu proyecto esté incluido en la carpeta de DAGs de Airflow.
-    *   Copia o monta el directorio `data` y `scripts` a una ubicación accesible por los workers de Airflow (si usas Docker, configura volúmenes). Usualmente ponerlos dentro de `$AIRFLOW_HOME` es una opción. El DAG asume que `data` y `scripts` son accesibles.
-    *   **Configurar Conexiones de Airflow (UI: Admin -> Connections):**
-        *   **PostgreSQL:**
-            *   `Conn Id`: `postgres_workshop` (o el que uses en el DAG)
-            *   `Conn Type`: `Postgres`
-            *   `Host`: Tu host de PostgreSQL (ej: `localhost` o IP/hostname del servidor PG)
-            *   `Schema`: El nombre de tu base de datos (ej: `spotify_etl_db`)
-            *   `Login`: Tu usuario de PostgreSQL
-            *   `Password`: Tu contraseña de PostgreSQL
-            *   `Port`: Tu puerto de PostgreSQL (ej: `5432`)
-        *   **Spotify API:**
-            *   `Conn Id`: `spotify_workshop` (o el que uses en el DAG)
-            *   `Conn Type`: `HTTP`
-            *   `Host`: `https://accounts.spotify.com` (o `https://api.spotify.com` también podría funcionar, aunque el token se pide a `accounts`)
-            *   `Login`: Tu `SPOTIFY_CLIENT_ID`
-            *   `Password`: Tu `SPOTIFY_CLIENT_SECRET`
-        *   **Google Drive (Google Cloud):**
-            *   `Conn Id`: `google_drive_workshop` (o el que uses en el DAG)
-            *   `Conn Type`: `Google Cloud`
-            *   `Keyfile Path`: Ruta *absoluta* en el worker de Airflow al archivo JSON de tu cuenta de servicio (ej: `/opt/airflow/config/gcp-key.json`). Asegúrate de que este archivo exista en esa ruta dentro del entorno de Airflow (worker).
-            *   *Alternativa:* `Keyfile JSON`: Pega el contenido completo del archivo JSON aquí.
-            *   `Project Id`: (Opcional pero recomendado) El ID de tu proyecto de Google Cloud.
-            *   `Scopes`: `https://www.googleapis.com/auth/drive` (necesario para interactuar con Google Drive)
-    *   **(Opcional) Configurar Variables de Airflow (UI: Admin -> Variables):**
-        *   Podrías usar una variable para `gdrive_folder_id` en lugar de leerla desde `.env` en el DAG.
-            *   `Key`: `gdrive_folder_id`
-            *   `Val`: `tu_id_de_carpeta_en_google_drive`
 
-## Ejecución del Pipeline
+5.  **Instalar Apache Airflow:**
+    *   Define las variables de entorno para la instalación y el directorio HOME de Airflow:
+        ```bash
+        export AIRFLOW_HOME="$(pwd)/airflow" # Define el directorio para Airflow dentro del proyecto
+        # Ajusta la versión de Airflow si necesitas una diferente
+        export AIRFLOW_VERSION=2.10.0
+        # Detecta tu versión de Python (ej. 3.10)
+        export PYTHON_VERSION="$(python3 -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')"
+        export CONSTRAINT_URL="https://raw.githubusercontent.com/apache/airflow/constraints-${AIRFLOW_VERSION}/constraints-${PYTHON_VERSION}.txt"
+        echo "AIRFLOW_HOME set to: ${AIRFLOW_HOME}"
+        echo "Using Airflow ${AIRFLOW_VERSION} with Python ${PYTHON_VERSION}"
+        echo "Constraint URL: ${CONSTRAINT_URL}"
+        ```
+    *   Instala Airflow con el proveedor de PostgreSQL:
+        ```bash
+        pip install "apache-airflow==${AIRFLOW_VERSION}" --constraint "${CONSTRAINT_URL}"
+        pip install apache-airflow-providers-postgres
+        ```
+    *   **Solución de Problemas (Error `google-re2` / `pybind11`):**
+        *   Si la instalación de Airflow falla con errores relacionados con `Building wheel for google-re2` o `pybind11`, puede ser necesario instalar dependencias de compilación y `google-re2` por separado. Ejecuta los siguientes comandos **SI Y SOLO SI** la instalación anterior falló:
+            ```bash
+            echo "--- Applying google-re2 workaround if needed ---"
+            # Instala herramientas de compilación (puede variar en otros OS)
+            sudo apt update && sudo apt install -y build-essential python3-dev
+            # Intenta instalar/actualizar pybind11 primero
+            pip install --upgrade pip setuptools wheel pybind11
+            # Exporta flags de compilación (puede que no siempre sea necesario pero ayuda)
+            export CXXFLAGS="-std=c++17 $(python3 -m pybind11 --includes)"
+            echo "CXXFLAGS set to: ${CXXFLAGS}"
+            # Intenta instalar google-re2 sin aislamiento de build
+            pip install --no-build-isolation google-re2
+            echo "--- google-re2 workaround attempt finished ---"
+            # Vuelve a intentar instalar Airflow después del workaround
+            pip install "apache-airflow==${AIRFLOW_VERSION}" --constraint "${CONSTRAINT_URL}"
+            pip install apache-airflow-providers-postgres
+            ```
 
-1.  Asegúrate de que Airflow Scheduler y Webserver estén corriendo.
-2.  Abre la interfaz web de Airflow.
-3.  Busca el DAG `spotify_grammy_etl_pipeline`.
-4.  Despausa el DAG (toggle a 'On').
-5.  Puedes dispararlo manualmente usando el botón 'Trigger DAG'.
-6.  Monitorea la ejecución en la vista de Grid o Graph. Verifica los logs de cada tarea si hay errores.
+6.  **Inicializar Airflow Standalone (Primera Vez):**
+    *   La primera vez que ejecutes `standalone`, Airflow inicializará la base de datos (en `airflow/airflow.db` por defecto con SQLite, aunque podrías configurarlo para usar PostgreSQL) y creará un usuario admin.
+    *   Asegúrate de que tu variable `AIRFLOW_HOME` esté correctamente exportada en tu terminal actual.
+        ```bash
+        echo $AIRFLOW_HOME # Debería mostrar la ruta a tu carpeta airflow
+        ```
+    *   Ejecuta el comando standalone. Te pedirá crear un usuario admin la primera vez.
+        ```bash
+        airflow standalone
+        ```
+    *   Anota el usuario y contraseña que creaste.
 
-## Transformaciones Clave y Decisiones de Diseño
+## Ejecutando el Pipeline
 
-*   **Spotify CSV:** Se seleccionan columnas relevantes, se limpian datos básicos (nulos en IDs, nombres), se convierten tipos, y se extrae el artista principal si hay varios. Se eliminan duplicados por `track_id`.
-*   **Grammys DB:** Se limpian nombres de artista y nominado, se estandariza la columna `winner` a booleano. Se preparan columnas para la unión (`join_artist_grammy`, `join_track_grammy`).
-*   **Spotify API:** Se procesa la lista de resultados de la API (asumiendo que son diccionarios de info de tracks, géneros, features) en un DataFrame. Se prefijan las columnas con `api_` para evitar colisiones.
-*   **Fusión:**
-    *   Se usa `df_spotify` (CSV) como base.
-    *   Se hace un `left join` con `df_api` usando `track_id` / `api_track_id`.
-    *   Se hace un `left join` del resultado con `df_grammys` usando nombres normalizados de track y artista (`join_track_spotify` vs `join_track_grammy`, `join_artist_spotify` vs `join_artist_grammy`). *Nota: Esta unión basada en nombres puede ser imperfecta.*
-    *   Se añade una columna `is_grammy_nominated_or_winner` y se limpia `is_grammy_winner`.
-*   **Carga:**
-    *   **PostgreSQL:** Se usa `to_sql` con `if_exists='replace'`, borrando la tabla `spotify_grammy_merged` y recreándola con los nuevos datos en cada ejecución.
-    *   **Google Drive:** Se sube el DataFrame como un archivo CSV usando la API de Google Drive v3 y autenticación de cuenta de servicio.
-
-## Verificación
-
-*   **PostgreSQL:** Conéctate a tu base de datos y ejecuta:
-    ```sql
-    SELECT COUNT(*) FROM spotify_grammy_merged;
-    SELECT * FROM spotify_grammy_merged LIMIT 10;
-    -- Revisa filas donde hubo match con Grammys:
-    SELECT * FROM spotify_grammy_merged WHERE is_grammy_nominated_or_winner = TRUE LIMIT 10;
+1.  **Activar Entorno Virtual:** Si no está activo:
+    ```bash
+    source venv/bin/activate
     ```
-*   **Google Drive:** Navega a la carpeta especificada en Google Drive y verifica que el archivo `spotify_grammy_merged_data.csv` se haya creado/actualizado. Descárgalo y revisa su contenido.
-*   **Airflow UI:** Revisa la vista de Grid/Graph para ver ejecuciones exitosas (en verde). Examina los logs de las tareas para detalles o errores.
+2.  **Establecer AIRFLOW_HOME:** Asegúrate de que la variable esté definida en tu sesión actual:
+    ```bash
+    export AIRFLOW_HOME="$(pwd)/airflow"
+    ```
+3.  **Iniciar Airflow Standalone:**
+    ```bash
+    airflow standalone
+    ```
+    Esto iniciará el scheduler, webserver y otros componentes necesarios.
+4.  **Acceder a la UI de Airflow:** Abre tu navegador y ve a `http://localhost:8080` (o el puerto que indique Airflow).
+5.  **Iniciar Sesión:** Usa el usuario y contraseña admin que creaste.
+6.  **Encontrar y Activar el DAG:**
+    *   Busca el DAG con ID `workshop_2_pipeline_v2_refactored`.
+    *   Activa el interruptor (toggle) para que el DAG esté activo (`ON`).
+7.  **Ejecutar el DAG:**
+    *   Haz clic en el nombre del DAG.
+    *   Haz clic en el botón de "Play" (Trigger DAG) en la esquina superior derecha. Puedes elegir ejecutarlo sin configuración adicional o con configuración (si la hubieras definido).
+8.  **Monitorear la Ejecución:** Observa el progreso del DAG en la vista de "Grid" o "Graph". Puedes hacer clic en cada tarea para ver sus logs detallados.
+9.  **Autorización de YouTube (Primera Ejecución):**
+    *   Durante la primera ejecución de la tarea `extract_api_task` (o si el token de autenticación almacenado expira), verás un mensaje en los logs de esa tarea pidiéndote visitar una URL de Google para autorizar la aplicación.
+    *   Copia esa URL, pégala en tu navegador, inicia sesión con tu cuenta de Google y concede los permisos solicitados.
+    *   Google te redirigirá a `http://localhost:PORT` (el puerto será aleatorio) o mostrará un código de autorización. Airflow capturará esto automáticamente si `run_local_server` funciona correctamente.
+    *   La tarea continuará después de la autorización exitosa. Las ejecuciones posteriores (mientras el refresh token sea válido) no requerirán esta interacción manual.
+10. **Verificar Resultados:** Una vez que el DAG se complete exitosamente, verifica la tabla `artists_merged_final` en tu base de datos PostgreSQL `artists`.
 
+## Estructura del Proyecto
+workshop_2/
+├── airflow/ # Directorio AIRFLOW_HOME
+│ ├── dags/ # Contiene los archivos de definición de DAGs
+│ │ ├── dag.py
+│ │ └── task_to_dag.py
+│ ├── logs/
+│ ├── airflow.cfg # Configuración de Airflow
+│ └── ... # Otros archivos de Airflow
+├── data/ # Archivos de datos de entrada y salida intermedia
+│ ├── spotify_dataset.csv
+│ ├── the_grammy_awards.csv
+│ └── youtube_stats.csv # Archivo de progreso/resultado de YouTube API
+├── env/ # Archivos de configuración de entorno
+│ └── .env # Variables de entorno (DB, API keys)
+├── src/ # Código fuente de la lógica ETL
+│ ├── extract/ # Scripts para la fase de extracción
+│ │ ├── extract_api.py
+│ │ ├── extract_csv.py
+│ │ └── extract_sql.py
+│ ├── transform/ # Scripts para la fase de transformación y merge
+│ │ ├── transform_api.py
+│ │ ├── transform_csv.py
+│ │ ├── transform_sql.py
+│ │ └── merge_data.py
+│ └── load/ # Scripts para la fase de carga
+│ └── load_to_db.py
+├── venv/ # Entorno virtual de Python (ignorado por git)
+├── .gitignore # Archivos a ignorar por Git
+└── README.md # Este archivo
+
+## Variables de Entorno (`env/.env`)
+
+Asegúrate de que este archivo exista y contenga las siguientes variables con tus valores:
+
+```dotenv
+# PostgreSQL Credentials
+POSTGRES_USER=tu_usuario_postgres
+POSTGRES_PASSWORD=tu_contraseña_postgres
+POSTGRES_HOST=localhost
+POSTGRES_PORT=5432
+POSTGRES_DB=artists
+
+# YouTube API OAuth 2.0 Credentials
+YOUTUBE_CLIENT_ID=TU_CLIENT_ID.apps.googleusercontent.com
+YOUTUBE_CLIENT_SECRET=TU_CLIENT_SECRET
+YOUTUBE_PROJECT_ID=tu-project-id
+YOUTUBE_AUTH_URI=https://accounts.google.com/o/oauth2/auth
+YOUTUBE_TOKEN_URI=https://oauth2.googleapis.com/token
+YOUTUBE_REDIRECT_URIS=http://localhost
