@@ -196,3 +196,8 @@ YOUTUBE_PROJECT_ID=tu-project-id
 YOUTUBE_AUTH_URI=https://accounts.google.com/o/oauth2/auth
 YOUTUBE_TOKEN_URI=https://oauth2.googleapis.com/token
 YOUTUBE_REDIRECT_URIS=http://localhost
+
+```
+nota: la ultima parte del google drive no la termine de hacer, la muestra de que el airflow me funciona fue cuando te lo presente hoy profesor.
+
+muchas gracias, buen dia.
